@@ -1,0 +1,11 @@
+# Discord bot framework (v2.x, app_commands support)
+discord.py>=2.3.2
+
+# Async SQLite driver
+aiosqlite>=0.19.0
+
+# Timezone support
+pytz>=2023.3
+
+# Environment variable loading
+python-dotenv>=1.0.0
