@@ -727,24 +727,15 @@ class PostItCog(commands.Cog, name="PostIt"):
         # Unwrap CommandInvokeError pour accéder à l'exception originale
         original = getattr(error, "original", error)
 
-        msg = "An unexpected error occurred. Please try again later."
-
-        if isinstance(error, app_commands.CommandOnCooldown):
-            msg = f"Command on cooldown. Try again in {error.retry_after:.1f}s."
-        elif isinstance(error, app_commands.MissingPermissions):
-            msg = "You don't have the required permissions for this command."
-        elif isinstance(error, app_commands.BotMissingPermissions):
-            msg = (
-                "I'm missing permissions needed to execute this command. "
-                "Please check my role settings."
-            )
-
         logger.error(
             "App command error in '%s': %s",
             interaction.command.name if interaction.command else "unknown",
             original,
             exc_info=original,
         )
+
+        # Affiche l'erreur réelle dans Discord pour faciliter le debug
+        msg = f"❌ **{type(original).__name__}:** `{original}`"
 
         # Respond only if we haven't already sent a response.
         try:
