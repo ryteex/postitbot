@@ -76,12 +76,12 @@ class BulkCreateModal(discord.ui.Modal, title="Créer plusieurs événements"):
 
     def __init__(
         self,
-        cog: "PostItCog",
+        bot: commands.Bot,
         channel: discord.TextChannel,
         tz_str: str,
     ) -> None:
         super().__init__()
-        self.cog = cog
+        self.bot = bot
         self.channel = channel
         self.tz_str = tz_str
 
@@ -142,7 +142,7 @@ class BulkCreateModal(discord.ui.Modal, title="Créer plusieurs événements"):
                     continue
 
             event_id = await Event.create(
-                db=self.cog.db,
+                db=self.bot.db,
                 guild_id=interaction.guild_id,
                 channel_id=self.channel.id,
                 creator_id=interaction.user.id,
@@ -433,7 +433,8 @@ class PostItCog(commands.Cog, name="PostIt"):
                 return
 
         # ── Determine fire time ───────────────────────────────────────────────
-        tz_str = await GuildSettings.get_timezone(self.db, interaction.guild_id)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        tz_str = await GuildSettings.get_timezone(db, interaction.guild_id)
         tz = pytz.timezone(tz_str)
         now = datetime.now(tz)
 
@@ -467,7 +468,7 @@ class PostItCog(commands.Cog, name="PostIt"):
 
         # ── Persist ───────────────────────────────────────────────────────────
         event_id = await Event.create(
-            db=self.db,
+            db=db,
             guild_id=interaction.guild_id,
             channel_id=channel.id,
             creator_id=interaction.user.id,
@@ -497,7 +498,8 @@ class PostItCog(commands.Cog, name="PostIt"):
     async def postit_list(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        total = await Event.count_for_guild(self.db, interaction.guild_id)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        total = await Event.count_for_guild(db, interaction.guild_id)
         if total == 0:
             await interaction.followup.send(
                 "No active scheduled events on this server.\n"
@@ -506,9 +508,9 @@ class PostItCog(commands.Cog, name="PostIt"):
             )
             return
 
-        tz_str = await GuildSettings.get_timezone(self.db, interaction.guild_id)
+        tz_str = await GuildSettings.get_timezone(db, interaction.guild_id)
         view = PaginatedListView(
-            db=self.db,
+            db=db,
             guild_id=interaction.guild_id,
             tz_str=tz_str,
             total=total,
@@ -526,7 +528,8 @@ class PostItCog(commands.Cog, name="PostIt"):
     ) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        event = await Event.get_by_id(self.db, event_id)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        event = await Event.get_by_id(db, event_id)
 
         # Validate existence and guild ownership.
         if not event or not event.is_active or event.guild_id != interaction.guild_id:
@@ -544,7 +547,7 @@ class PostItCog(commands.Cog, name="PostIt"):
             )
             return
 
-        await Event.deactivate(self.db, event_id)
+        await Event.deactivate(db, event_id)
         await interaction.followup.send(
             f"Event **#{event_id}** has been deleted.", ephemeral=True
         )
@@ -577,7 +580,8 @@ class PostItCog(commands.Cog, name="PostIt"):
         await interaction.response.defer(ephemeral=True)
 
         # ── Fetch and validate ────────────────────────────────────────────────
-        event = await Event.get_by_id(self.db, event_id)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        event = await Event.get_by_id(db, event_id)
         if not event or not event.is_active or event.guild_id != interaction.guild_id:
             await interaction.followup.send(
                 f"Event **#{event_id}** not found.", ephemeral=True
@@ -625,7 +629,7 @@ class PostItCog(commands.Cog, name="PostIt"):
                     return
 
         if when:
-            tz_str = await GuildSettings.get_timezone(self.db, interaction.guild_id)
+            tz_str = await GuildSettings.get_timezone(db, interaction.guild_id)
             tz = pytz.timezone(tz_str)
             try:
                 fire_dt = parse_datetime(when, tz)
@@ -636,7 +640,7 @@ class PostItCog(commands.Cog, name="PostIt"):
                 )
                 return
 
-        await Event.edit(self.db, event_id, **kwargs)
+        await Event.edit(db, event_id, **kwargs)
         await interaction.followup.send(
             f"Event **#{event_id}** updated successfully.", ephemeral=True
         )
@@ -678,7 +682,8 @@ class PostItCog(commands.Cog, name="PostIt"):
             )
             return
 
-        await GuildSettings.set_timezone(self.db, interaction.guild_id, canonical)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        await GuildSettings.set_timezone(db, interaction.guild_id, canonical)
 
         now = datetime.now(tz)
         await interaction.followup.send(
@@ -706,8 +711,9 @@ class PostItCog(commands.Cog, name="PostIt"):
             )
             return
 
-        tz_str = await GuildSettings.get_timezone(self.db, interaction.guild_id)
-        modal = BulkCreateModal(cog=self, channel=channel, tz_str=tz_str)
+        db = interaction.client.db  # type: ignore[attr-defined]
+        tz_str = await GuildSettings.get_timezone(db, interaction.guild_id)
+        modal = BulkCreateModal(bot=interaction.client, channel=channel, tz_str=tz_str)
         await interaction.response.send_modal(modal)
 
     # ── Global error handler ──────────────────────────────────────────────────
