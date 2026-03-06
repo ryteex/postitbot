@@ -718,6 +718,9 @@ class PostItCog(commands.Cog, name="PostIt"):
         error: app_commands.AppCommandError,
     ) -> None:
         """Catch any unhandled app command errors and report them gracefully."""
+        # Unwrap CommandInvokeError pour accéder à l'exception originale
+        original = getattr(error, "original", error)
+
         msg = "An unexpected error occurred. Please try again later."
 
         if isinstance(error, app_commands.CommandOnCooldown):
@@ -733,8 +736,8 @@ class PostItCog(commands.Cog, name="PostIt"):
         logger.error(
             "App command error in '%s': %s",
             interaction.command.name if interaction.command else "unknown",
-            error,
-            exc_info=error,
+            original,
+            exc_info=original,
         )
 
         # Respond only if we haven't already sent a response.
