@@ -31,7 +31,7 @@ class PostItBot(commands.Bot):
             intents=intents,
             help_command=None,
         )
-        self.db = Database(Config.DATABASE_PATH)
+        self.db = Database()
 
     # ── Startup ───────────────────────────────────────────────────────────────
 

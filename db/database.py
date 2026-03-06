@@ -6,71 +6,66 @@ A single Database instance is created at bot startup and shared across all cogs.
 
 import logging
 
-import aiosqlite
+import asyncpg
+
+from config import Config
 
 logger = logging.getLogger(__name__)
 
 # ── SQL schema ────────────────────────────────────────────────────────────────
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS guild_settings (
-    guild_id  INTEGER PRIMARY KEY,
-    timezone  TEXT    NOT NULL DEFAULT 'UTC'
-);
 
-CREATE TABLE IF NOT EXISTS events (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    guild_id    INTEGER NOT NULL,
-    channel_id  INTEGER NOT NULL,
-    creator_id  INTEGER NOT NULL,
-    -- 'message' sends plain text; 'reminder' also mentions the creator
-    event_type  TEXT    NOT NULL CHECK(event_type IN ('message', 'reminder')),
-    content     TEXT    NOT NULL,
-    -- Unix timestamp of the next scheduled execution
-    next_run    INTEGER NOT NULL,
-    -- JSON-encoded recurrence rule, NULL for one-time events
-    recurrence  TEXT,
-    created_at  INTEGER NOT NULL,
-    is_active   INTEGER NOT NULL DEFAULT 1
-);
-
--- Speed up the hot path: "give me all active events due by time T"
-CREATE INDEX IF NOT EXISTS idx_events_due
-    ON events (next_run, is_active);
-
--- Speed up listing per guild
-CREATE INDEX IF NOT EXISTS idx_events_guild
-    ON events (guild_id, is_active);
-"""
+_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS guild_settings (
+        guild_id  BIGINT PRIMARY KEY,
+        timezone  TEXT   NOT NULL DEFAULT 'UTC'
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS events (
+        id          SERIAL  PRIMARY KEY,
+        guild_id    BIGINT  NOT NULL,
+        channel_id  BIGINT  NOT NULL,
+        creator_id  BIGINT  NOT NULL,
+        event_type  TEXT    NOT NULL CHECK(event_type IN ('message', 'reminder')),
+        content     TEXT    NOT NULL,
+        next_run    BIGINT  NOT NULL,
+        recurrence  TEXT,
+        created_at  BIGINT  NOT NULL,
+        is_active   SMALLINT NOT NULL DEFAULT 1
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_events_due   ON events (next_run, is_active)",
+    "CREATE INDEX IF NOT EXISTS idx_events_guild ON events (guild_id, is_active)",
+]
 
 
 class Database:
-    """Async wrapper around an aiosqlite connection."""
+    """Async wrapper around an asyncpg connection pool."""
 
-    def __init__(self, path: str) -> None:
-        self.path = path
-        self._conn: aiosqlite.Connection | None = None
+    def __init__(self) -> None:
+        self._pool: asyncpg.Pool | None = None
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     async def initialize(self) -> None:
-        """Open the connection and create tables if they don't exist."""
-        self._conn = await aiosqlite.connect(self.path)
-        self._conn.row_factory = aiosqlite.Row
-        # Allow access to columns by name (e.g. row["guild_id"])
-        await self._conn.executescript(SCHEMA)
-        await self._conn.commit()
-        logger.info("Database ready at %s", self.path)
+        """Open the connection pool and create tables if they don't exist."""
+        self._pool = await asyncpg.create_pool(dsn=Config.DATABASE_URL)
+        async with self._pool.acquire() as conn:
+            for stmt in _SCHEMA_STATEMENTS:
+                await conn.execute(stmt)
+        logger.info("Database ready (PostgreSQL).")
 
     async def close(self) -> None:
-        if self._conn:
-            await self._conn.close()
-            self._conn = None
-            logger.info("Database connection closed.")
+        if self._pool:
+            await self._pool.close()
+            self._pool = None
+            logger.info("Database pool closed.")
 
     # ── Accessor ──────────────────────────────────────────────────────────────
 
     @property
-    def conn(self) -> aiosqlite.Connection:
-        if self._conn is None:
+    def pool(self) -> asyncpg.Pool:
+        if self._pool is None:
             raise RuntimeError("Database.initialize() has not been called yet.")
-        return self._conn
+        return self._pool

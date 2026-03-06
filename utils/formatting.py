@@ -82,12 +82,12 @@ def build_list_embed(
         )
         preview = event.content[:120] + ("…" if len(event.content) > 120 else "")
 
-        field_name = f"{icon} #{event.id} — {event.event_type.capitalize()}"
+        field_name = f"{icon} {event.event_type.capitalize()} — {recur_text}"
         field_value = (
-            f"**Channel:** <#{event.channel_id}>\n"
-            f"**Next run:** {fire_time.strftime('%Y-%m-%d %H:%M %Z')}\n"
-            f"**Recurrence:** {recur_text}\n"
-            f"**Content:** {preview}"
+            f"🆔 **ID : `{event.id}`** — pour `/postit delete` ou `/postit edit`\n"
+            f"**Salon :** <#{event.channel_id}>\n"
+            f"**Prochain envoi :** {fire_time.strftime('%Y-%m-%d %H:%M %Z')}\n"
+            f"**Contenu :** {preview}"
         )
         embed.add_field(name=field_name, value=field_value, inline=False)
 
