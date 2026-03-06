@@ -64,11 +64,7 @@ class BulkCreateModal(discord.ui.Modal, title="Créer plusieurs événements"):
 
     events_input = discord.ui.TextInput(
         label="Événements (un par ligne)",
-        placeholder=(
-            "every monday at 11:45 | 👟 Course dans 15 minutes !\n"
-            "every monday at 14:45 | 🎣 Pêche dans 15 minutes !\n"
-            "every monday at 18:15 | 🔨 Enchères dans 15 minutes !"
-        ),
+        placeholder="every monday at 11:45 | 👟 Course !\nevery day at 9:00 | Bonjour !",
         style=discord.TextStyle.paragraph,
         max_length=4000,
         required=True,
